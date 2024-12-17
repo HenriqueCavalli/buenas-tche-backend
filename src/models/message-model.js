@@ -19,6 +19,13 @@ const MessageSchema = new mongoose.Schema({
 		type: Date,
 		default: Date.now,
 	},
+	read: {
+		type: Boolean,
+		default: false,
+	},
 });
+
+MessageSchema.index({ receiver: 1, read: 1 });
+MessageSchema.index({ sender: 1, receiver: 1 });
 
 module.exports = mongoose.model("Message", MessageSchema);

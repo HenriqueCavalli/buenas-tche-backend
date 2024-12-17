@@ -5,6 +5,10 @@ const User = require("../models/user-model");
 
 let io;
 
+// Mapeamento de usuários para seus sockets, para fazer notificação inicial
+const userSocketMap = new Map();
+const socketUserMap = new Map();
+
 // Função para obter o nome da room
 function getConversationRoom(userId1, userId2) {
 	return `conversation_${[userId1, userId2].sort().join("_")}`;
@@ -42,6 +46,16 @@ function initializeSocket(server) {
 			}
 
 			socket.user = user; // Anexar o usuário ao socket
+			socket.join(`user_${user._id}`);
+
+			const userIdStr = user._id.toString();
+			if (userSocketMap.has(userIdStr)) {
+				userSocketMap.get(userIdStr).add(socket.id);
+			} else {
+				userSocketMap.set(userIdStr, new Set([socket.id]));
+			}
+			socketUserMap.set(socket.id, userIdStr);
+
 			next();
 		} catch (err) {
 			console.error("Erro na autenticação do socket:", err);
@@ -118,8 +132,34 @@ function initializeSocket(server) {
 
 				const room = getConversationRoom(senderId, receiverId);
 
-				// Emitir para todos menos para mim
-				socket.to(room).emit("receiveMessage", structuredMessage);
+				// Verificar se o receiver está na sala de conversa
+				const receiverSockets = userSocketMap.get(
+					receiverId.toString(),
+				);
+				let isReceiverInRoom = false;
+
+				if (receiverSockets) {
+					for (const socketId of receiverSockets) {
+						const roomSet = io.sockets.adapter.rooms.get(room);
+						if (roomSet && roomSet.has(socketId)) {
+							isReceiverInRoom = true;
+							break;
+						}
+					}
+				}
+
+				if (isReceiverInRoom) {
+					// Emitir para a room da conversa
+					socket.to(room).emit("receiveMessage", structuredMessage);
+					socket.to(room).emit("updateUserList");
+				} else {
+					// Emitir diretamente para o receiver para notificação
+					io.to(`user_${receiverId}`).emit(
+						"receiveMessage",
+						structuredMessage,
+					);
+					io.to(`user_${receiverId}`).emit("updateUserList");
+				}
 			} catch (err) {
 				console.error("Erro ao enviar mensagem:", err);
 			}
@@ -130,6 +170,18 @@ function initializeSocket(server) {
 			try {
 				await setUserOnlineStatus(socket.user.username, false);
 				io.emit("updateUserList");
+
+				const userId = socketUserMap.get(socket.id);
+				if (userId) {
+					const sockets = userSocketMap.get(userId);
+					if (sockets) {
+						sockets.delete(socket.id);
+						if (sockets.size === 0) {
+							userSocketMap.delete(userId);
+						}
+					}
+					socketUserMap.delete(socket.id);
+				}
 			} catch (err) {
 				console.error("Erro ao processar desconexão:", err);
 			}

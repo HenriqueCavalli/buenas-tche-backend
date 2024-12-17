@@ -7,7 +7,8 @@ async function createUser({ name, username, password }) {
 }
 
 async function findUserByUsername(username) {
-	return await User.findOne({ username });
+	const lowercaseUsername = username.toLowerCase();
+	return await User.findOne({ username: lowercaseUsername });
 }
 
 async function setUserOnlineStatus(username, isOnline) {
