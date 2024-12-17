@@ -67,4 +67,4 @@ Se você encontrar problemas relacionados ao `bcrypt`, como erros de compilaçã
 
 ---
 
-*Desenvolvido  por [Henrique Cavalli](https://github.com/HenriqueCavalli)*
+*Desenvolvido por [Henrique Cavalli](https://github.com/HenriqueCavalli)*
