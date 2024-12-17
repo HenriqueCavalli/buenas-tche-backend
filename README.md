@@ -41,6 +41,7 @@ Antes de começar, certifique-se de que você tenha instalado em sua máquina:
    ```
 
    Isso irá construir as imagens Docker necessárias e iniciar os contêineres. A aplicação estará disponível conforme definido na configuração do Docker Compose.
+   Caso a porta ja esteja alocada, vai abrir em outra, tome cuidado com as portas no .env para evitar erros de conexão.
 
 ## 🐞 Resolução de Problemas
 

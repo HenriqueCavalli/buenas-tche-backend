@@ -15,7 +15,7 @@ const configurePassport = require("./config/passport-jwt");
 const loadRoutes = require("./src/routes");
 const { initializeSocket } = require("./src/services/socket-service");
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 if (cluster.isMaster) {
 	const httpServer = http.createServer();
