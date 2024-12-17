@@ -5,6 +5,11 @@ const User = require("../models/user-model");
 
 let io;
 
+// Função para obter o nome da room
+function getConversationRoom(userId1, userId2) {
+	return `conversation_${[userId1, userId2].sort().join("_")}`;
+}
+
 function initializeSocket(server) {
 	io = require("socket.io")(server, {
 		cors: {
@@ -19,6 +24,7 @@ function initializeSocket(server) {
 		try {
 			const token = socket.handshake.auth.token;
 			if (!token) {
+				console.error("Token não fornecido");
 				return next(
 					new Error("Authentication error: Token not provided"),
 				);
@@ -31,27 +37,27 @@ function initializeSocket(server) {
 			const user = await User.findById(decoded.id);
 
 			if (!user) {
+				console.error("Usuário não encontrado");
 				return next(new Error("Authentication error: User not found"));
 			}
 
 			socket.user = user; // Anexar o usuário ao socket
 			next();
 		} catch (err) {
-			console.error("Socket authentication error:", err);
+			console.error("Erro na autenticação do socket:", err);
 			next(new Error("Authentication error"));
 		}
 	});
 
 	io.on("connection", (socket) => {
-		console.log(
-			`Novo cliente conectado: ${socket.id} - Usuário: ${socket.user.username}`,
-		);
-
-		// Adicionar o usuário à sua própria sala usando seu ID
-		socket.join(socket.user._id.toString());
-		console.log(
-			`Usuário ${socket.user.username} entrou na sala ${socket.user._id}`,
-		);
+		// Listener para entrar em uma room
+		socket.on("joinConversation", ({ otherUserId }) => {
+			const room = getConversationRoom(
+				socket.user._id.toString(),
+				otherUserId,
+			);
+			socket.join(room);
+		});
 
 		// Marcar o usuário como online
 		(async () => {
@@ -67,7 +73,7 @@ function initializeSocket(server) {
 		socket.on("sendMessage", async (data) => {
 			try {
 				const { receiverId, content } = data;
-				const senderId = socket.user._id;
+				const senderId = socket.user._id.toString();
 
 				if (!receiverId || !content) {
 					console.error(
@@ -94,15 +100,26 @@ function initializeSocket(server) {
 					content,
 				});
 
-				// Emitir para o receptor específico na sala correspondente
-				io.to(receiverId).emit("receiveMessage", newMessage);
+				const structuredMessage = {
+					...newMessage._doc,
+					sender: {
+						_id: socket.user._id,
+						name: socket.user.name,
+						username: socket.user.username,
+					},
+					receiver: {
+						_id: receiver._id,
+						name: receiver.name,
+						username: receiver.username,
+					},
+				};
 
-				// Emitir para o remetente para confirmar o envio
-				socket.emit("messageSent", newMessage);
+				delete structuredMessage.__v;
 
-				console.log(
-					`Mensagem enviada de ${senderId} para ${receiverId}: ${content}`,
-				);
+				const room = getConversationRoom(senderId, receiverId);
+
+				// Emitir para todos menos para mim
+				socket.to(room).emit("receiveMessage", structuredMessage);
 			} catch (err) {
 				console.error("Erro ao enviar mensagem:", err);
 			}
@@ -113,12 +130,13 @@ function initializeSocket(server) {
 			try {
 				await setUserOnlineStatus(socket.user.username, false);
 				io.emit("updateUserList");
-				console.log(`Usuário desconectado: ${socket.user.username}`);
 			} catch (err) {
 				console.error("Erro ao processar desconexão:", err);
 			}
 		});
 	});
+
+	return io;
 }
 
 module.exports = { initializeSocket };

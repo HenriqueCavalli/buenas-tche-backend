@@ -25,5 +25,9 @@ services:
         env_file:
             - .env
         restart: always
-        command: pm2-runtime ecosystem.config.js --env $NODE_ENV
+        command: node server.js
         tty: true
+
+volumes:
+    mongo_data:
+        driver: local

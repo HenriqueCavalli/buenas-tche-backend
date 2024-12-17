@@ -18,9 +18,14 @@ async function getAllUsers() {
 	return await User.find({}, "name username online");
 }
 
+async function getById(id) {
+	return await User.findOne({ _id: id }, "name username online");
+}
+
 module.exports = {
 	createUser,
 	findUserByUsername,
 	setUserOnlineStatus,
 	getAllUsers,
+	getById,
 };
