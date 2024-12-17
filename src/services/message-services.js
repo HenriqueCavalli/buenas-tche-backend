@@ -34,8 +34,19 @@ async function getUnreadMessagesCount(userId) {
 	return count;
 }
 
+async function getAllMessages() {
+	const messages = await Message.find()
+		.sort({ timestamp: -1 })
+		.populate("sender", "name username")
+		.populate("receiver", "name username")
+		.exec();
+
+	return messages;
+}
+
 module.exports = {
 	createMessage,
 	getMessagesBetweenUsers,
 	getUnreadMessagesCount,
+    getAllMessages
 };
